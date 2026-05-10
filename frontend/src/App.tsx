@@ -6,6 +6,8 @@ function App() {
   const [progress, setProgress] = useState(0);
   const [enabled, setEnabled] = useState(true);
   const [speed, setSpeed] = useState(0.333);
+  const [pulseKey, setPulseKey] = useState<number | null>(null);
+  const [pulsePending, setPulsePending] = useState(false);
   // TODO set progress with socket
 
   useEffect(() => {
@@ -87,6 +89,8 @@ function App() {
       setProgress(x);
 
       if (shouldPause) {
+        // mark pulse to play when user re-enables
+        setPulsePending(true);
         setEnabled(false);
         return;
       }
@@ -102,12 +106,28 @@ function App() {
     };
 	}, [enabled, speed]);
 
+  useEffect(() => {
+    if (enabled && pulsePending) {
+      setPulseKey(Date.now());
+      setTimeout(() => setPulseKey(null), 700);
+      setPulsePending(false);
+    }
+  }, [enabled, pulsePending]);
+
   return (
-    <div className="bg-gray-700 h-screen" onMouseDown={(e) => setEnabled((o) => !o)}>
+      <div className="bg-gray-700 h-screen" onMouseDown={(e) => setEnabled((o) => !o)}>
       <img
         src={"http://localhost:8000/video_feed"}
         className="mx-auto h-full"
       />
+        {pulseKey && (
+          <div className="edge-pulse-container" key={pulseKey}>
+            <div className="edge top" />
+            <div className="edge right" />
+            <div className="edge bottom" />
+            <div className="edge left" />
+          </div>
+        )}
       <TimeBar progress={progress} />
     </div>
   );
