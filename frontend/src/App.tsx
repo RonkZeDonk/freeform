@@ -17,7 +17,15 @@ const ACCURACY_LABELS: Record<Accuracy, string> = {
   miss: "Miss",
 };
 
-const EXPECTED_POSE_SEQUENCE = ["down", "curl_up"];
+const ACCURACY_ORDER: Accuracy[] = ["hit", "almost", "bad", "miss"];
+const EXPECTED_POSE_SEQUENCE = ["curl_up", "down"];
+const MAX_REPS = 10;
+const INITIAL_ACCURACY_COUNTS: Record<Accuracy, number> = {
+  hit: 0,
+  almost: 0,
+  bad: 0,
+  miss: 0,
+};
 
 const formatPoseName = (poseName: string) =>
   poseName
@@ -47,14 +55,20 @@ function App() {
   const [progress, setProgress] = useState(0);
   const [enabled, setEnabled] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
+  const [workoutComplete, setWorkoutComplete] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [speed] = useState(0.333);
   const [pulseKey, setPulseKey] = useState<number | null>(null);
   const [pulseAccuracy, setPulseAccuracy] = useState<Accuracy>("hit");
   const [pulsePending, setPulsePending] = useState(false);
   const [clickTimings, setClickTimings] = useState<ClickTiming[]>([]);
+  const [accuracyCounts, setAccuracyCounts] = useState<
+    Record<Accuracy, number>
+  >(INITIAL_ACCURACY_COUNTS);
   const [matchedPoseName, setMatchedPoseName] = useState<string | null>(null);
   const [expectedPoseIndex, setExpectedPoseIndex] = useState(0);
+  const [repCount, setRepCount] = useState(0);
+  const [showDebug, setShowDebug] = useState(false);
 
   const loopId = useRef(0);
   const previousTime = useRef(0);
@@ -63,7 +77,9 @@ function App() {
   const lastTargetHit = useRef<{ time: number; phase: number } | null>(null);
   const enabledRef = useRef(enabled);
   const gameStartedRef = useRef(gameStarted);
+  const workoutCompleteRef = useRef(workoutComplete);
   const expectedPoseIndexRef = useRef(expectedPoseIndex);
+  const lastAcceptedPoseRef = useRef<string | null>(null);
 
   const crossedPhaseTarget = (prev: number, next: number, target: number) => {
     if (prev <= next) {
@@ -156,8 +172,8 @@ function App() {
   };
 
   const triggerAccuracy = () => {
-    if (!gameStartedRef.current) {
-      return;
+    if (!gameStartedRef.current || workoutCompleteRef.current) {
+      return null;
     }
 
     const timing = scoreClick();
@@ -167,13 +183,15 @@ function App() {
       playPulse(timing.accuracy);
       setEnabled(true);
       enabledRef.current = true;
-      return;
+      return timing;
     }
 
     setEnabled((isEnabled) => {
       enabledRef.current = !isEnabled;
       return !isEnabled;
     });
+
+    return timing;
   };
 
   useEffect(() => {
@@ -185,8 +203,26 @@ function App() {
   }, [gameStarted]);
 
   useEffect(() => {
+    workoutCompleteRef.current = workoutComplete;
+  }, [workoutComplete]);
+
+  useEffect(() => {
     expectedPoseIndexRef.current = expectedPoseIndex;
   }, [expectedPoseIndex]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() === "d") {
+        setShowDebug((isShowing) => !isShowing);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   useEffect(() => {
     const socket = new WebSocket("ws://localhost:8001");
@@ -199,6 +235,10 @@ function App() {
           return;
         }
 
+        if (!gameStartedRef.current) {
+          return;
+        }
+
         const poseName =
           message.matched === true && typeof message.match === "string"
             ? message.match
@@ -207,6 +247,7 @@ function App() {
         setMatchedPoseName(poseName);
 
         if (!poseName) {
+          lastAcceptedPoseRef.current = null;
           return;
         }
 
@@ -216,13 +257,54 @@ function App() {
           ];
 
         if (poseName !== expectedPose) {
+          if (poseName !== lastAcceptedPoseRef.current) {
+            lastAcceptedPoseRef.current = null;
+          }
+
           return;
         }
 
-        triggerAccuracy();
+        if (poseName === lastAcceptedPoseRef.current) {
+          return;
+        }
+
+        lastAcceptedPoseRef.current = poseName;
+
+        const timing = triggerAccuracy();
+
+        if (!timing) {
+          return;
+        }
+
+        setAccuracyCounts((counts) => ({
+          ...counts,
+          [timing.accuracy]: counts[timing.accuracy] + 1,
+        }));
+
         setExpectedPoseIndex((index) => {
           const nextIndex = index + 1;
           expectedPoseIndexRef.current = nextIndex;
+          const completedPoseCycle =
+            index % EXPECTED_POSE_SEQUENCE.length ===
+            EXPECTED_POSE_SEQUENCE.length - 1;
+
+          if (completedPoseCycle) {
+            setRepCount((reps) => {
+              const nextRepCount = reps + 1;
+
+              if (nextRepCount >= MAX_REPS * 2) {
+                setWorkoutComplete(true);
+                workoutCompleteRef.current = true;
+                setGameStarted(false);
+                gameStartedRef.current = false;
+                setEnabled(false);
+                enabledRef.current = false;
+              }
+
+              return nextRepCount;
+            });
+          }
+
           return nextIndex;
         });
       } catch (error) {
@@ -242,8 +324,14 @@ function App() {
 
     setCountdown(5);
     setClickTimings([]);
+    setAccuracyCounts(INITIAL_ACCURACY_COUNTS);
+    setMatchedPoseName(null);
     setExpectedPoseIndex(0);
+    setRepCount(0);
+    setWorkoutComplete(false);
+    workoutCompleteRef.current = false;
     expectedPoseIndexRef.current = 0;
+    lastAcceptedPoseRef.current = null;
 
     const countdownId = window.setInterval(() => {
       setCountdown((currentCountdown) => {
@@ -373,23 +461,6 @@ function App() {
         className="mx-auto h-full"
       />
       {latestTiming && (
-        <div className="absolute left-4 top-4 rounded bg-black/70 px-4 py-3 text-white">
-          <div className="text-sm uppercase tracking-wide text-white/70">
-            {latestTiming.kind} distance
-          </div>
-          <div className="text-2xl font-bold">
-            {Math.abs(latestTiming.offsetMs)}ms{" "}
-            {latestTiming.offsetMs < 0 ? "early" : "late"}
-          </div>
-          <div className="mt-2 border-t border-white/15 pt-2 text-base font-semibold text-white/85">
-            {matchedPoseName ? `Pose: ${matchedPoseName}` : "No pose match"}
-          </div>
-          <div className="mt-1 text-sm font-semibold text-white/60">
-            Expecting: {formattedExpectedPoseName}
-          </div>
-        </div>
-      )}
-      {latestTiming && (
         <div
           key={latestTiming.clickedAt}
           className={`accuracy-card accuracy-${latestTiming.accuracy}`}
@@ -410,7 +481,33 @@ function App() {
           <div className="edge left" />
         </div>
       )}
-      {!gameStarted && (
+      <div className="rep-counter">
+        <div className="rep-counter__label">Reps</div>
+        <div className="rep-counter__value">
+          {repCount / 2}/{MAX_REPS}
+        </div>
+      </div>
+      {showDebug && (
+        <div className="debug-panel">
+          <div className="text-sm uppercase tracking-wide text-white/70">
+            {latestTiming ? `${latestTiming.kind} distance` : "No timing yet"}
+          </div>
+          <div className="text-2xl font-bold">
+            {latestTiming
+              ? `${Math.abs(latestTiming.offsetMs)}ms ${latestTiming.offsetMs < 0 ? "early" : "late"}`
+              : "--"}
+          </div>
+          <div className="mt-2 border-t border-white/15 pt-2 text-base font-semibold text-white/85">
+            {matchedPoseName
+              ? `Pose: ${formatPoseName(matchedPoseName)}`
+              : "No pose match"}
+          </div>
+          <div className="mt-1 text-sm font-semibold text-white/60">
+            Expecting: {formattedExpectedPoseName}
+          </div>
+        </div>
+      )}
+      {!gameStarted && !workoutComplete && (
         <div className="start-overlay">
           {countdown === null ? (
             <button
@@ -431,9 +528,40 @@ function App() {
           )}
         </div>
       )}
-      <div className="expected-pose-banner">
-        {formattedExpectedPoseName}
-      </div>
+      {workoutComplete && (
+        <div className="start-overlay">
+          <div className="workout-complete-card">
+            <div className="workout-complete-card__eyebrow">
+              Workout Complete
+            </div>
+            <div className="workout-complete-card__title">
+              {repCount / 2} reps
+            </div>
+            <div className="accuracy-summary">
+              {ACCURACY_ORDER.map((accuracy) => (
+                <div
+                  className={`accuracy-summary__item accuracy-${accuracy}`}
+                  key={accuracy}
+                >
+                  <span>{ACCURACY_LABELS[accuracy]}</span>
+                  <strong>{accuracyCounts[accuracy]}</strong>
+                </div>
+              ))}
+            </div>
+            <button
+              className="start-button workout-complete-card__button"
+              onMouseDown={(event) => {
+                event.stopPropagation();
+                startCountdown();
+              }}
+              type="button"
+            >
+              Restart
+            </button>
+          </div>
+        </div>
+      )}
+      <div className="expected-pose-banner">{formattedExpectedPoseName}</div>
       <TimeBar progress={progress} />
     </div>
   );
