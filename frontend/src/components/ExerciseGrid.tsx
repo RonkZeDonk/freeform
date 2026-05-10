@@ -17,7 +17,7 @@ function getExerciseDetails(exercise: Exercise) {
     : { disabled: false, ...exercise };
 }
 
-function ExerciseList({ exercises, title }: { exercises: Exercise[], title: string }) {
+function ExerciseList({ exercises, title, onExerciseSelect }: { exercises: Exercise[]; title: string; onExerciseSelect?: (exerciseName: ExerciseName) => void }) {
   return (
     <section className="rounded-lg border border-white/10 bg-slate-950/70 p-3 shadow-lg shadow-black/20 backdrop-blur sm:p-4">
       <h2 className="mb-4 font-bold text-xl">
@@ -33,6 +33,11 @@ function ExerciseList({ exercises, title }: { exercises: Exercise[], title: stri
               key={`${name}-${index}`}
               type="button"
               disabled={disabled}
+              onClick={() => {
+                if (!disabled) {
+                  onExerciseSelect?.(name);
+                }
+              }}
               className={[
                 "group relative flex min-h-80 w-full flex-col overflow-hidden rounded-lg border text-left transition duration-200",
                 "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200",
