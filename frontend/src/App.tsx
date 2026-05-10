@@ -4,14 +4,14 @@ import TimeBar from "./components/TimeBar";
 
 function App() {
   useEffect(() => {
-    const socket = new WebSocket("wss://localhost:8001");
+    const socket = new WebSocket("ws://localhost:8001");
 
     socket.onmessage = (ev) => {
       console.log(ev);
     }
 
     return () => {socket.close()};
-  });
+  }, []);
 
   const [progress, setProgress] = useState(0);
   // TODO set progress with socket
