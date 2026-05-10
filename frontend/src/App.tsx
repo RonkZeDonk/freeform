@@ -1,9 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 import TimeBar from "./components/TimeBar";
-import sampleVideo from "./sample-5s.mp4";
 
 function App() {
+  useEffect(() => {
+    const socket = new WebSocket("wss://localhost:8001");
+
+    socket.onmessage = (ev) => {
+      console.log(ev);
+    }
+
+    return () => {socket.close()};
+  });
+
   const [progress, setProgress] = useState(0);
   // TODO set progress with socket
 
