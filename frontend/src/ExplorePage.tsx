@@ -3,6 +3,21 @@ import { useNavigate } from "react-router-dom";
 import ExerciseList from "./components/ExerciseGrid";
 import PickerModal, { type PickerSubmitValues } from "./components/PickerModal";
 
+const exercisePosesMap: Record<string, string[]> = {
+  "bicep curl": [],
+  "hammer curl": [],
+  "lateral raise": [],
+  "shoulder press": [],
+  "preacher curl": [],
+  "incline curl": [],
+  "front raise": [],
+  "cable curl": [],
+  "machine press": [],
+  "barbell press": [],
+  "dumbbell press": [],
+  "rear raise": [],
+};
+
 function ExplorePage() {
   const navigate = useNavigate();
   const [isPickerOpen, setIsPickerOpen] = useState(false);
@@ -17,8 +32,11 @@ function ExplorePage() {
   function handlePickerSubmit(values: PickerSubmitValues) {
     setSelectedSetup(values);
 
+    const exercisePoses = exercisePosesMap[values.exerciseType] ?? [];
+
     const params = new URLSearchParams({
       exerciseType: values.exerciseType,
+      poses: JSON.stringify(exercisePoses),
       heightFeet: String(values.heightFeet),
       heightInches: String(values.heightInches),
       timePerRepSeconds: String(values.timePerRepSeconds),
@@ -91,12 +109,12 @@ function ExplorePage() {
 
           <ExerciseList
             title="Frequent Exercises"
-            exercises={["example 1", "example 1", "example 3", "example 3"]}
+            exercises={["bicep curl", "hammer curl", "lateral raise", "shoulder press", "bicep curl", "hammer curl"]}
             onExerciseSelect={handleExerciseSelect}
           />
           <ExerciseList
             title="Suggested Workouts"
-            exercises={["example 1", { name: "example 3", disabled: true }, "example 3", "example 1", "example 2"]}
+            exercises={["preacher curl", "incline curl", "front raise", { name: "cable curl", disabled: true }, "machine press", "barbell press", "dumbbell press", "rear raise"]}
             onExerciseSelect={handleExerciseSelect}
           />
         </div>

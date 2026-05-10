@@ -1,4 +1,4 @@
-type ExerciseName = "example 1" | "example 2" | "example 3";
+type ExerciseName = "bicep curl" | "hammer curl" | "lateral raise" | "shoulder press" | "preacher curl" | "incline curl" | "front raise" | "cable curl" | "machine press" | "barbell press" | "dumbbell press" | "rear raise";
 type Exercise = ExerciseName | { name: ExerciseName; disabled?: boolean };
 
 const exerciseStyles = [
