@@ -11,8 +11,9 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <Routes>
-        <Route path='/' element={<App />} />
-        <Route path='/explore' element={<ExplorePage />} />
+        <Route path='/' element={<ExplorePage />} />
+        <Route path='/camera' element={<App />} />
+        <Route path='/explore' element={<Navigate to='/' replace />} />
         <Route path='*' element={<Navigate to='/' replace />} />
       </Routes>
     </BrowserRouter>

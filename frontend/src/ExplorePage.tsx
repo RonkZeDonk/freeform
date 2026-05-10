@@ -67,7 +67,7 @@ function ExplorePage() {
       reps: String(values.reps),
     });
 
-    navigate(`/?${params.toString()}`, { replace: true });
+    navigate(`/camera?${params.toString()}`, { replace: true });
   }
 
   return (
