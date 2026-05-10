@@ -27,7 +27,7 @@ function ExplorePage() {
             <input
               type="search"
               id="search"
-              placeholder="Search tempo, move, or muscle group"
+              placeholder="Search exercises, muscle group or equipment"
               className="min-h-12 flex-1 rounded-md border border-cyan-300/20 bg-slate-950/80 px-4 text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-200"
             />
           <button
