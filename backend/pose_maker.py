@@ -28,7 +28,6 @@ MATCH_COLOR = (0, 220, 255)
 ERROR_COLOR = (0, 80, 255)
 
 KEY_LANDMARKS = (
-    0,
     11,
     12,
     13,
@@ -40,15 +39,6 @@ KEY_LANDMARKS = (
 )
 
 UPPER_BODY_CONNECTIONS = (
-    (0, 1),
-    (1, 2),
-    (2, 3),
-    (3, 7),
-    (0, 4),
-    (4, 5),
-    (5, 6),
-    (6, 8),
-    (9, 10),
     (11, 12),
     (11, 13),
     (13, 15),
@@ -291,9 +281,10 @@ def draw_pose_landmarks(frame, pose_landmarks):
         if start is not None and end is not None:
             cv2.line(frame, start, end, CONNECTION_COLOR, 2)
 
-    for point in points:
+    for index, point in enumerate(points):
         if point is not None:
-            cv2.circle(frame, point, 4, LANDMARK_COLOR, -1)
+            if index >= 11:
+                cv2.circle(frame, point, 4, LANDMARK_COLOR, -1)
 
 
 def draw_status(frame, lines):
