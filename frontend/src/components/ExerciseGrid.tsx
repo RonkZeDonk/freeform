@@ -3,25 +3,11 @@ type Exercise = ExerciseName | { name: ExerciseName; disabled?: boolean };
 
 const exerciseStyles = [
   {
-    accent: "bg-cyan-300",
-    photo: "bg-cyan-300/10",
-    glow: "shadow-cyan-500/10",
-    text: "text-cyan-200",
-    ring: "group-hover:border-cyan-300/70",
-  },
-  {
-    accent: "bg-fuchsia-300",
-    photo: "bg-fuchsia-300/10",
-    glow: "shadow-fuchsia-500/10",
-    text: "text-fuchsia-200",
-    ring: "group-hover:border-fuchsia-300/70",
-  },
-  {
-    accent: "bg-lime-300",
-    photo: "bg-lime-300/10",
-    glow: "shadow-lime-500/10",
-    text: "text-lime-200",
-    ring: "group-hover:border-lime-300/70",
+    accent: "bg-red-800",
+    photo: "bg-red-300/10",
+    glow: "shadow-red-500/10",
+    text: "text-red-200",
+    ring: "group-hover:border-red-300/70",
   },
 ];
 
@@ -31,9 +17,12 @@ function getExerciseDetails(exercise: Exercise) {
     : { disabled: false, ...exercise };
 }
 
-function ExerciseList({ exercises }: { exercises: Exercise[] }) {
+function ExerciseList({ exercises, title }: { exercises: Exercise[], title: string }) {
   return (
     <section className="rounded-lg border border-white/10 bg-slate-950/70 p-3 shadow-lg shadow-black/20 backdrop-blur sm:p-4">
+      <h2 className="mb-4 font-bold text-xl">
+        {title}
+      </h2>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {exercises?.map((exercise, index) => {
           const { name, disabled } = getExerciseDetails(exercise);

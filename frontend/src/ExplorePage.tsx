@@ -2,14 +2,11 @@ import ExerciseList from "./components/ExerciseGrid";
 
 function ExplorePage() {
   return (
-    <main className="min-h-screen overflow-hidden bg-slate-950 px-4 py-8 text-white sm:px-8 lg:px-16">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(34,211,238,0.14),transparent_28%),radial-gradient(circle_at_82%_8%,rgba(236,72,153,0.12),transparent_26%)]" />
-      <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.035)_1px,transparent_1px)] bg-[size:56px_56px] [mask-image:linear-gradient(to_bottom,black,transparent)]" />
-
+    <main className="min-h-screen overflow-hidden bg-gray-900 px-4 py-8 text-white sm:px-8 lg:px-16">
       <div className="relative mx-auto flex max-w-7xl flex-col gap-5">
         <header className="py-4">
           <div>
-            <p className="text-sm font-bold uppercase text-cyan-200">
+            <p className="text-sm font-bold uppercase text-red-400">
               Freeform Arcade
             </p>
             <h1 className="mt-2 text-4xl font-black uppercase text-white sm:text-5xl">
@@ -33,7 +30,7 @@ function ExplorePage() {
           <button
             type="submit"
             id="searchBtn"
-            className="min-h-12 rounded-md border border-fuchsia-300/30 bg-fuchsia-500/15 px-6 text-sm font-black uppercase text-fuchsia-100 shadow-sm shadow-black/20 transition hover:-translate-y-0.5 hover:bg-fuchsia-500/25 active:translate-y-0"
+            className="min-h-12 rounded-md border border-red-300/30 bg-red-950 px-6 text-sm font-black uppercase text-red-100 shadow-sm shadow-black/20 transition hover:-translate-y-0.5 hover:bg-red-600/25 active:translate-y-0"
             onClick={(e) => {
               e.preventDefault();
             }}
@@ -43,8 +40,8 @@ function ExplorePage() {
         </div>
         </form>
 
-        <ExerciseList exercises={["example 1", "example 1", "example 3", { name: "example 2", disabled: true }, "example 2", "example 3", "example 1", "example 1", "example 3", "example 1", { name: "example 2", disabled: true }, "example 3", "example 1", "example 1", "example 3", "example 1", "example 2", "example 3"]} />
-        <ExerciseList exercises={["example 1", { name: "example 3", disabled: true }, "example 3", "example 1", "example 2", "example 3", "example 1", "example 1", "example 3", "example 1", "example 2", "example 3", "example 1", "example 1", "example 3", "example 1", "example 2", "example 3"]} />
+        <ExerciseList title="Frequent Exercises" exercises={["example 1", "example 1", "example 3", "example 3"]} />
+        <ExerciseList title="Suggested Workouts" exercises={["example 1", { name: "example 3", disabled: true }, "example 3", "example 1", "example 2"]} />
       </div>
     </main>
   )
