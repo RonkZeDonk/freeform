@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import ExerciseList from "./components/ExerciseGrid";
+import ExerciseList, { type Exercise } from "./components/ExerciseGrid";
 import PickerModal, { type PickerSubmitValues } from "./components/PickerModal";
 
 const exercisePosesMap: Record<string, string[]> = {
@@ -16,7 +16,26 @@ const exercisePosesMap: Record<string, string[]> = {
   "barbell press": [],
   "dumbbell press": [],
   "rear raise": [],
+  "the force": [],
+  "shadow boxing": [],
 };
+
+const frequentExercises: Exercise[] = [
+  { name: "bicep curl", imageSrc: "/bi%20curls.jpeg" },
+  { name: "hammer curl", imageSrc: "/hamcurl.jpeg" },
+  { name: "lateral raise", imageSrc: "/lat%20raise.jpeg" },
+  { name: "shoulder press", imageSrc: "/shoulder%20press.jpeg" },
+];
+
+const suggestedExercises: Exercise[] = [
+  { name: "barbell press", imageSrc: "/marrachas.jpeg" },
+  { name: "shadow boxing", imageSrc: "/box.jpeg" },
+  { name: "front raise", imageSrc: "/superman.jpeg" },
+  { name: "the force", imageSrc: "/the%20force.jpeg", disabled: true },
+  { name: "preacher curl", imageSrc: "/catgirl.jpeg" },
+  { name: "incline curl", imageSrc: "/shy.jpeg" },
+  { name: "dumbbell press", imageSrc: "/EAC0F2EB-8128-46A0-B818-7AB5302D6C78.jpeg" },
+];
 
 function ExplorePage() {
   const navigate = useNavigate();
@@ -67,13 +86,6 @@ function ExplorePage() {
               </h1>
             </div>
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                className="rounded-md border border-cyan-300/30 bg-cyan-950/40 px-4 py-2 text-xs font-bold uppercase text-cyan-100 transition hover:bg-cyan-900/50"
-                onClick={() => setIsPickerOpen(true)}
-              >
-                Open Setup
-              </button>
               {selectedSetup && (
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-300">
                   {selectedSetup.exerciseType} | {selectedSetup.heightFeet}ft {selectedSetup.heightInches}in | {selectedSetup.timePerRepSeconds}s/rep | {selectedSetup.reps} reps
@@ -109,12 +121,12 @@ function ExplorePage() {
 
           <ExerciseList
             title="Frequent Exercises"
-            exercises={["bicep curl", "hammer curl", "lateral raise", "shoulder press", "bicep curl", "hammer curl"]}
+            exercises={frequentExercises}
             onExerciseSelect={handleExerciseSelect}
           />
           <ExerciseList
             title="Suggested Workouts"
-            exercises={["preacher curl", "incline curl", "front raise", { name: "cable curl", disabled: true }, "machine press", "barbell press", "dumbbell press", "rear raise"]}
+            exercises={suggestedExercises}
             onExerciseSelect={handleExerciseSelect}
           />
         </div>

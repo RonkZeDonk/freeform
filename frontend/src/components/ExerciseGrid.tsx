@@ -1,20 +1,56 @@
-type ExerciseName = "bicep curl" | "hammer curl" | "lateral raise" | "shoulder press" | "preacher curl" | "incline curl" | "front raise" | "cable curl" | "machine press" | "barbell press" | "dumbbell press" | "rear raise";
-type Exercise = ExerciseName | { name: ExerciseName; disabled?: boolean };
+import heroImage from "../assets/hero.png";
+
+export type ExerciseName = "bicep curl" | "hammer curl" | "lateral raise" | "shoulder press" | "preacher curl" | "incline curl" | "front raise" | "cable curl" | "machine press" | "barbell press" | "dumbbell press" | "rear raise" | "shadow boxing" | "the force";
+export type Exercise =
+  | ExerciseName
+  | {
+      name: ExerciseName;
+      disabled?: boolean;
+      imageSrc?: string;
+      imageAlt?: string;
+    };
 
 const exerciseStyles = [
   {
-    accent: "bg-red-800",
-    photo: "bg-red-300/10",
+    accent: "bg-red-500",
     glow: "shadow-red-500/10",
     text: "text-red-200",
     ring: "group-hover:border-red-300/70",
+    tint: "from-red-950/80",
   },
 ];
 
+const exerciseImages: Record<ExerciseName, string> = {
+  "bicep curl": "/bi%20curls.jpeg",
+  "hammer curl": "/hamcurl.jpeg",
+  "lateral raise": "/lat%20raise.jpeg",
+  "shoulder press": "/shoulder%20press.jpeg",
+  "preacher curl": "/catgirl.jpeg",
+  "incline curl": "/shy.jpeg",
+  "front raise": "/superman.jpeg",
+  "cable curl": "/box.jpeg",
+  "machine press": "/the%20force.jpeg",
+  "barbell press": "/marrachas.jpeg",
+  "dumbbell press": "/EAC0F2EB-8128-46A0-B818-7AB5302D6C78.jpeg",
+  "rear raise": heroImage,
+};
+
 function getExerciseDetails(exercise: Exercise) {
-  return typeof exercise === "string"
-    ? { name: exercise, disabled: false }
-    : { disabled: false, ...exercise };
+  if (typeof exercise === "string") {
+    return {
+      name: exercise,
+      disabled: false,
+      imageSrc: exerciseImages[exercise],
+      imageAlt: `${exercise} preview`,
+    };
+  }
+
+  return {
+    disabled: false,
+    imageSrc: exerciseImages[exercise.name],
+    imageAlt: `${exercise.name} preview`,
+    ...exercise,
+  };
 }
 
 function ExerciseList({ exercises, title, onExerciseSelect }: { exercises: Exercise[]; title: string; onExerciseSelect?: (exerciseName: ExerciseName) => void }) {
@@ -25,7 +61,7 @@ function ExerciseList({ exercises, title, onExerciseSelect }: { exercises: Exerc
       </h2>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {exercises?.map((exercise, index) => {
-          const { name, disabled } = getExerciseDetails(exercise);
+          const { name, disabled, imageSrc, imageAlt } = getExerciseDetails(exercise);
           const style = exerciseStyles[index % exerciseStyles.length];
 
           return (
@@ -52,16 +88,23 @@ function ExerciseList({ exercises, title, onExerciseSelect }: { exercises: Exerc
                   disabled ? "bg-slate-600" : style.accent,
                 ].join(" ")}
               />
-              <span
-                className={[
-                  "flex flex-1 items-center justify-center",
-                  disabled ? "bg-slate-800/60" : style.photo,
-                ].join(" ")}
-                aria-hidden="true"
-              >
-                <span className="flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-slate-950/40 text-xs font-bold uppercase text-slate-400">
-                  Photo
-                </span>
+              <span className="relative flex flex-1 overflow-hidden">
+                <img
+                  src={imageSrc}
+                  alt={imageAlt}
+                  className={[
+                    "h-full w-full object-cover transition duration-300",
+                    disabled ? "opacity-45" : "group-hover:scale-105",
+                  ].join(" ")}
+                  loading="lazy"
+                />
+                <span
+                  className={[
+                    "absolute inset-0 bg-linear-to-t via-slate-950/25 to-transparent",
+                    disabled ? "from-slate-950/90" : style.tint,
+                  ].join(" ")}
+                />
+                <span className="absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-slate-950/95 to-transparent" />
               </span>
 
               <span className="flex min-h-28 flex-col items-start justify-center gap-3 border-t border-white/10 bg-slate-950/85 p-4">
