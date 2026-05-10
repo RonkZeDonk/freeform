@@ -1,11 +1,30 @@
-#stream src: http://127.0.0.1:8000/video_feed
-#change height: http://127.0.0.1:8000/height?value=5ft10
+# stream src: http://127.0.0.1:8000/video_feed
+# match websocket: ws://127.0.0.1:8001
+# change height: http://127.0.0.1:8000/height?value=5ft10
 
+
+# WEBSOCKET JSON FORMAT
+# {
+#   "type": "pose_match",
+#   "match": "pose name",
+#   "matched": true,
+#   "distance": 0.123,
+#   "angle_distance": 8.4,
+#   "height_inches": 72,
+#   "height": "6'0\"",
+#   "updated_at": 1710000000.123
+# }
+
+
+import base64
+import hashlib
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import math
 from pathlib import Path
+import socketserver
+import threading
 import time
 from urllib.parse import parse_qs, urlparse
 
@@ -24,9 +43,12 @@ POSES_PATH = BASE_DIR / "poses.json"
 
 HOST = "127.0.0.1"
 PORT = 8000
+WEBSOCKET_PORT = 8001
 CAMERA_INDEX = 0
 JPEG_QUALITY = 85
 STREAM_BOUNDARY = "frame"
+WEBSOCKET_MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+MATCH_BROADCAST_INTERVAL_SECONDS = 0.1
 
 VISIBILITY_THRESHOLD = 0.5
 MATCH_THRESHOLD = 0.35
@@ -71,6 +93,14 @@ UPPER_BODY_CONNECTIONS = (
 )
 
 current_height_inches = DEFAULT_HEIGHT_INCHES
+match_state_lock = threading.Lock()
+latest_match_state = {
+    "match": None,
+    "matched": False,
+    "distance": None,
+    "angle_distance": None,
+    "updated_at": None,
+}
 
 
 def create_pose_landmarker():
@@ -267,6 +297,29 @@ def find_best_match(current_pose, reference_poses, height_inches):
     return best_pose if matches else None, best_distance, best_angle_distance
 
 
+def set_latest_match(match_name=None, distance=None, angle_distance=None):
+    with match_state_lock:
+        latest_match_state["match"] = match_name
+        latest_match_state["matched"] = match_name is not None
+        latest_match_state["distance"] = distance
+        latest_match_state["angle_distance"] = angle_distance
+        latest_match_state["updated_at"] = time.time()
+
+
+def get_latest_match_payload():
+    with match_state_lock:
+        return {
+            "type": "pose_match",
+            "match": latest_match_state["match"],
+            "matched": latest_match_state["matched"],
+            "distance": latest_match_state["distance"],
+            "angle_distance": latest_match_state["angle_distance"],
+            "height_inches": current_height_inches,
+            "height": format_height(current_height_inches),
+            "updated_at": latest_match_state["updated_at"],
+        }
+
+
 def draw_pose_landmarks(frame, pose_landmarks):
     height, width = frame.shape[:2]
     points = []
@@ -341,6 +394,7 @@ def status_payload(reference_pose_count):
         "reference_pose_count": reference_pose_count,
         "angle_tolerance": adjusted_angle_tolerance(current_height_inches),
         "stream": "/video_feed",
+        "match_websocket": f"ws://{HOST}:{WEBSOCKET_PORT}",
         "height_endpoint": "/height?value=5ft10",
     }
 
@@ -444,6 +498,7 @@ def annotated_frames():
                     normalized_pose = normalize_landmarks(pose_landmarks)
 
                     if normalized_pose is None:
+                        set_latest_match()
                         if DEBUG_MODE:
                             status_lines.append(("Pose not stable enough to match.", ERROR_COLOR))
                     elif reference_poses:
@@ -452,6 +507,15 @@ def annotated_frames():
                             reference_poses,
                             current_height_inches,
                         )
+
+                        if best_pose:
+                            set_latest_match(
+                                best_pose["name"],
+                                best_distance,
+                                best_angle_distance,
+                            )
+                        else:
+                            set_latest_match()
 
                         if best_pose and DEBUG_MODE:
                             status_lines.append(
@@ -470,10 +534,15 @@ def annotated_frames():
                                     TEXT_COLOR,
                                 )
                             )
-                    elif DEBUG_MODE:
-                        status_lines.append(("No reference poses available to match.", ERROR_COLOR))
+                    else:
+                        set_latest_match()
+                        if DEBUG_MODE:
+                            status_lines.append(("No reference poses available to match.", ERROR_COLOR))
                 elif DEBUG_MODE:
+                    set_latest_match()
                     status_lines.append(("No body detected.", ERROR_COLOR))
+                else:
+                    set_latest_match()
 
                 if DEBUG_MODE:
                     draw_status(frame, status_lines)
@@ -481,6 +550,7 @@ def annotated_frames():
                 if jpg is not None:
                     yield jpg
     finally:
+        set_latest_match()
         camera.release()
 
 
@@ -503,6 +573,7 @@ class PoseStreamHandler(BaseHTTPRequestHandler):
                 {
                     "message": "Pose stream is running.",
                     "video_feed": "/video_feed",
+                    "match_websocket": f"ws://{HOST}:{WEBSOCKET_PORT}",
                     "status": "/status",
                     "height": "/height?value=5ft10",
                 }
@@ -590,21 +661,108 @@ class PoseStreamHandler(BaseHTTPRequestHandler):
         print(f"{self.address_string()} - {format % args}")
 
 
+class PoseMatchWebSocketHandler(socketserver.StreamRequestHandler):
+    def handle(self):
+        headers = self.read_websocket_headers()
+        websocket_key = headers.get("sec-websocket-key")
+
+        if not websocket_key:
+            return
+
+        accept_key = base64.b64encode(
+            hashlib.sha1((websocket_key + WEBSOCKET_MAGIC).encode("ascii")).digest()
+        ).decode("ascii")
+
+        self.wfile.write(
+            (
+                "HTTP/1.1 101 Switching Protocols\r\n"
+                "Upgrade: websocket\r\n"
+                "Connection: Upgrade\r\n"
+                f"Sec-WebSocket-Accept: {accept_key}\r\n"
+                "Access-Control-Allow-Origin: *\r\n"
+                "\r\n"
+            ).encode("ascii")
+        )
+        self.wfile.flush()
+
+        try:
+            previous_payload = None
+            while True:
+                payload = json.dumps(get_latest_match_payload(), separators=(",", ":"))
+                if payload != previous_payload:
+                    self.write_text_frame(payload)
+                    previous_payload = payload
+
+                time.sleep(MATCH_BROADCAST_INTERVAL_SECONDS)
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            return
+
+    def read_websocket_headers(self):
+        request_line = self.rfile.readline().decode("iso-8859-1").strip()
+        if not request_line:
+            return {}
+
+        headers = {}
+        while True:
+            line = self.rfile.readline().decode("iso-8859-1").strip()
+            if not line:
+                break
+
+            name, _, value = line.partition(":")
+            headers[name.lower()] = value.strip()
+
+        return headers
+
+    def write_text_frame(self, message):
+        payload = message.encode("utf-8")
+        header = bytearray([0x81])
+        length = len(payload)
+
+        if length <= 125:
+            header.append(length)
+        elif length <= 65535:
+            header.append(126)
+            header.extend(length.to_bytes(2, "big"))
+        else:
+            header.append(127)
+            header.extend(length.to_bytes(8, "big"))
+
+        self.wfile.write(header + payload)
+        self.wfile.flush()
+
+
+class ThreadingWebSocketServer(socketserver.ThreadingTCPServer):
+    allow_reuse_address = True
+
+
 def main():
     if not POSES_PATH.exists():
         print(f"No reference poses file found at {POSES_PATH}. Stream will run without matches.")
 
-    server = ThreadingHTTPServer((HOST, PORT), PoseStreamHandler)
+    stream_server = ThreadingHTTPServer((HOST, PORT), PoseStreamHandler)
+    websocket_server = ThreadingWebSocketServer(
+        (HOST, WEBSOCKET_PORT),
+        PoseMatchWebSocketHandler,
+    )
+    websocket_thread = threading.Thread(
+        target=websocket_server.serve_forever,
+        daemon=True,
+    )
+    websocket_thread.start()
+
     print(f"Pose stream server running at http://{HOST}:{PORT}")
     print(f"Use http://{HOST}:{PORT}/video_feed as an img src in JavaScript.")
+    print(f"Pose match websocket running at ws://{HOST}:{WEBSOCKET_PORT}")
     print(f"Change height with http://{HOST}:{PORT}/height?value=5ft10")
 
     try:
-        server.serve_forever()
+        stream_server.serve_forever()
     except KeyboardInterrupt:
         print("Stopping pose stream server.")
     finally:
-        server.server_close()
+        stream_server.server_close()
+        websocket_server.shutdown()
+        websocket_server.server_close()
 
 
 if __name__ == "__main__":
