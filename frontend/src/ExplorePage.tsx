@@ -16,7 +16,6 @@ function ExplorePage() {
 
   function handlePickerSubmit(values: PickerSubmitValues) {
     setSelectedSetup(values);
-    setIsPickerOpen(false);
 
     const params = new URLSearchParams({
       exerciseType: values.exerciseType,
@@ -26,7 +25,7 @@ function ExplorePage() {
       reps: String(values.reps),
     });
 
-    navigate(`/?${params.toString()}`);
+    navigate(`/?${params.toString()}`, { replace: true });
   }
 
   return (
