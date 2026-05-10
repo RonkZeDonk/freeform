@@ -4,10 +4,10 @@ import ExerciseList from "./components/ExerciseGrid";
 import PickerModal, { type PickerSubmitValues } from "./components/PickerModal";
 
 const exercisePosesMap: Record<string, string[]> = {
-  "bicep curl": [],
-  "hammer curl": [],
-  "lateral raise": [],
-  "shoulder press": [],
+  "bicep curl": ["curl_up", "down"],
+  "hammer curl": ["hammer_left", "down", "hammer_right", "down"],
+  "lateral raise": ["lateral_raise", "down"],
+  "shoulder press": ["press_up", "press_down"],
   "preacher curl": [],
   "incline curl": [],
   "front raise": [],
@@ -21,7 +21,9 @@ const exercisePosesMap: Record<string, string[]> = {
 function ExplorePage() {
   const navigate = useNavigate();
   const [isPickerOpen, setIsPickerOpen] = useState(false);
-  const [selectedSetup, setSelectedSetup] = useState<PickerSubmitValues | null>(null);
+  const [selectedSetup, setSelectedSetup] = useState<PickerSubmitValues | null>(
+    null,
+  );
   const [selectedExerciseName, setSelectedExerciseName] = useState("Exercise");
 
   function handleExerciseSelect(exerciseName: string) {
@@ -76,14 +78,20 @@ function ExplorePage() {
               </button>
               {selectedSetup && (
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-300">
-                  {selectedSetup.exerciseType} | {selectedSetup.heightFeet}ft {selectedSetup.heightInches}in | {selectedSetup.timePerRepSeconds}s/rep | {selectedSetup.reps} reps
+                  {selectedSetup.exerciseType} | {selectedSetup.heightFeet}ft{" "}
+                  {selectedSetup.heightInches}in |{" "}
+                  {selectedSetup.timePerRepSeconds}s/rep | {selectedSetup.reps}{" "}
+                  reps
                 </p>
               )}
             </div>
           </header>
 
           <form className="rounded-lg border border-white/10 bg-white/5 p-4 shadow-lg shadow-black/20 backdrop-blur">
-            <label htmlFor="search" className="text-sm font-bold uppercase text-slate-300">
+            <label
+              htmlFor="search"
+              className="text-sm font-bold uppercase text-slate-300"
+            >
               Find a workout
             </label>
 
@@ -94,33 +102,49 @@ function ExplorePage() {
                 placeholder="Search exercises, muscle group or equipment"
                 className="min-h-12 flex-1 rounded-md border border-cyan-300/20 bg-slate-950/80 px-4 text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-200"
               />
-            <button
-              type="submit"
-              id="searchBtn"
-              className="min-h-12 rounded-md border border-red-300/30 bg-red-950 px-6 text-sm font-black uppercase text-red-100 shadow-sm shadow-black/20 transition hover:-translate-y-0.5 hover:bg-red-600/25 active:translate-y-0"
-              onClick={(e) => {
-                e.preventDefault();
-              }}
-            >
-              Search
-            </button>
-          </div>
+              <button
+                type="submit"
+                id="searchBtn"
+                className="min-h-12 rounded-md border border-red-300/30 bg-red-950 px-6 text-sm font-black uppercase text-red-100 shadow-sm shadow-black/20 transition hover:-translate-y-0.5 hover:bg-red-600/25 active:translate-y-0"
+                onClick={(e) => {
+                  e.preventDefault();
+                }}
+              >
+                Search
+              </button>
+            </div>
           </form>
 
           <ExerciseList
             title="Frequent Exercises"
-            exercises={["bicep curl", "hammer curl", "lateral raise", "shoulder press", "bicep curl", "hammer curl"]}
+            exercises={[
+              "bicep curl",
+              "hammer curl",
+              "lateral raise",
+              "shoulder press",
+              "bicep curl",
+              "hammer curl",
+            ]}
             onExerciseSelect={handleExerciseSelect}
           />
           <ExerciseList
             title="Suggested Workouts"
-            exercises={["preacher curl", "incline curl", "front raise", { name: "cable curl", disabled: true }, "machine press", "barbell press", "dumbbell press", "rear raise"]}
+            exercises={[
+              "preacher curl",
+              "incline curl",
+              "front raise",
+              { name: "cable curl", disabled: true },
+              "machine press",
+              "barbell press",
+              "dumbbell press",
+              "rear raise",
+            ]}
             onExerciseSelect={handleExerciseSelect}
           />
         </div>
       </main>
     </>
-  )
+  );
 }
 
 export default ExplorePage;

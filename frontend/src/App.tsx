@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./App.css";
 import TimeBar from "./components/TimeBar";
 
@@ -18,8 +19,12 @@ const ACCURACY_LABELS: Record<Accuracy, string> = {
 };
 
 const ACCURACY_ORDER: Accuracy[] = ["hit", "almost", "bad", "miss"];
-const EXPECTED_POSE_SEQUENCE = ["curl_up", "down"];
-const MAX_REPS = 10;
+const DEFAULT_EXERCISE_TYPE = "Workout";
+const DEFAULT_POSE_SEQUENCE = ["curl_up", "down"];
+const DEFAULT_REPS = 10;
+const DEFAULT_TIME_PER_REP_SECONDS = 3;
+const DEFAULT_HEIGHT_FEET = 5;
+const DEFAULT_HEIGHT_INCHES = 10;
 const INITIAL_ACCURACY_COUNTS: Record<Accuracy, number> = {
   hit: 0,
   almost: 0,
@@ -32,6 +37,59 @@ const formatPoseName = (poseName: string) =>
     .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+
+const parsePositiveNumber = (value: string | null, fallback: number) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const parsePositiveInteger = (value: string | null, fallback: number) => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const parsePoseSequence = (value: string | null) => {
+  if (!value) {
+    return DEFAULT_POSE_SEQUENCE;
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+
+    if (
+      Array.isArray(parsed) &&
+      parsed.every((pose) => typeof pose === "string" && pose.length > 0)
+    ) {
+      return parsed;
+    }
+  } catch (error) {
+    console.warn("Unable to parse poses from URL", error);
+  }
+
+  return DEFAULT_POSE_SEQUENCE;
+};
+
+const getWorkoutConfig = () => {
+  const params = new URLSearchParams(window.location.search);
+
+  return {
+    exerciseType: params.get("exerciseType") ?? DEFAULT_EXERCISE_TYPE,
+    poses: parsePoseSequence(params.get("poses")),
+    heightFeet: parsePositiveInteger(
+      params.get("heightFeet"),
+      DEFAULT_HEIGHT_FEET,
+    ),
+    heightInches: parsePositiveInteger(
+      params.get("heightInches"),
+      DEFAULT_HEIGHT_INCHES,
+    ),
+    timePerRepSeconds: parsePositiveNumber(
+      params.get("timePerRepSeconds"),
+      DEFAULT_TIME_PER_REP_SECONDS,
+    ),
+    reps: parsePositiveInteger(params.get("reps"), DEFAULT_REPS),
+  };
+};
 
 type ClickTiming = {
   offsetMs: number;
@@ -52,12 +110,16 @@ type PoseMatchMessage = {
 };
 
 function App() {
+  const navigate = useNavigate();
+  const [workoutConfig] = useState(getWorkoutConfig);
+  const expectedPoseSequence = workoutConfig.poses;
+  const maxReps = workoutConfig.reps * 2;
+  const speed = 1 / workoutConfig.timePerRepSeconds;
   const [progress, setProgress] = useState(0);
   const [enabled, setEnabled] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
   const [workoutComplete, setWorkoutComplete] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
-  const [speed] = useState(0.333);
   const [pulseKey, setPulseKey] = useState<number | null>(null);
   const [pulseAccuracy, setPulseAccuracy] = useState<Accuracy>("hit");
   const [pulsePending, setPulsePending] = useState(false);
@@ -79,6 +141,8 @@ function App() {
   const gameStartedRef = useRef(gameStarted);
   const workoutCompleteRef = useRef(workoutComplete);
   const expectedPoseIndexRef = useRef(expectedPoseIndex);
+  const expectedPoseSequenceRef = useRef(expectedPoseSequence);
+  const maxRepsRef = useRef(maxReps);
   const lastAcceptedPoseRef = useRef<string | null>(null);
 
   const crossedPhaseTarget = (prev: number, next: number, target: number) => {
@@ -97,6 +161,16 @@ function App() {
 
   const targetKind = (phase: number): ClickTiming["kind"] =>
     phase === 0.5 ? "min" : "max";
+
+  useEffect(() => {
+    const heightValue = `${workoutConfig.heightFeet}ft${workoutConfig.heightInches}`;
+
+    fetch(
+      `http://127.0.0.1:8000/height?value=${encodeURIComponent(heightValue)}`,
+    ).catch((error) => {
+      console.warn("Unable to set height on backend", error);
+    });
+  }, [workoutConfig.heightFeet, workoutConfig.heightInches]);
 
   const getAccuracy = (offsetMs: number) => {
     const absoluteOffset = Math.abs(offsetMs);
@@ -252,8 +326,9 @@ function App() {
         }
 
         const expectedPose =
-          EXPECTED_POSE_SEQUENCE[
-            expectedPoseIndexRef.current % EXPECTED_POSE_SEQUENCE.length
+          expectedPoseSequenceRef.current[
+            expectedPoseIndexRef.current %
+              expectedPoseSequenceRef.current.length
           ];
 
         if (poseName !== expectedPose) {
@@ -285,14 +360,14 @@ function App() {
           const nextIndex = index + 1;
           expectedPoseIndexRef.current = nextIndex;
           const completedPoseCycle =
-            index % EXPECTED_POSE_SEQUENCE.length ===
-            EXPECTED_POSE_SEQUENCE.length - 1;
+            index % expectedPoseSequenceRef.current.length ===
+            expectedPoseSequenceRef.current.length - 1;
 
           if (completedPoseCycle) {
             setRepCount((reps) => {
               const nextRepCount = reps + 1;
 
-              if (nextRepCount >= MAX_REPS * 2) {
+              if (nextRepCount >= maxRepsRef.current) {
                 setWorkoutComplete(true);
                 workoutCompleteRef.current = true;
                 setGameStarted(false);
@@ -446,8 +521,11 @@ function App() {
 
   const latestTiming = clickTimings[0];
   const expectedPoseName =
-    EXPECTED_POSE_SEQUENCE[expectedPoseIndex % EXPECTED_POSE_SEQUENCE.length];
+    expectedPoseSequence[expectedPoseIndex % expectedPoseSequence.length];
   const formattedExpectedPoseName = formatPoseName(expectedPoseName);
+  const formattedExerciseType = formatPoseName(
+    workoutConfig.exerciseType.replaceAll(" ", "_"),
+  );
 
   return (
     <div
@@ -484,7 +562,7 @@ function App() {
       <div className="rep-counter">
         <div className="rep-counter__label">Reps</div>
         <div className="rep-counter__value">
-          {repCount / 2}/{MAX_REPS}
+          {repCount / 2}/{maxReps / 2}
         </div>
       </div>
       {showDebug && (
@@ -518,7 +596,7 @@ function App() {
               }}
               type="button"
             >
-              Start
+              Start {formattedExerciseType}
             </button>
           ) : (
             <div className="countdown-card">
@@ -548,16 +626,28 @@ function App() {
                 </div>
               ))}
             </div>
-            <button
-              className="start-button workout-complete-card__button"
-              onMouseDown={(event) => {
-                event.stopPropagation();
-                startCountdown();
-              }}
-              type="button"
-            >
-              Restart
-            </button>
+            <div className="workout-complete-card__actions">
+              <button
+                className="start-button workout-complete-card__button"
+                onMouseDown={(event) => {
+                  event.stopPropagation();
+                  startCountdown();
+                }}
+                type="button"
+              >
+                Restart
+              </button>
+              <button
+                className="start-button workout-complete-card__button"
+                onMouseDown={(event) => {
+                  event.stopPropagation();
+                  navigate("/explore");
+                }}
+                type="button"
+              >
+                Explore
+              </button>
+            </div>
           </div>
         </div>
       )}

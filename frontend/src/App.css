@@ -311,11 +311,21 @@
 	font-size: 1.6rem;
 	line-height: 1;
 }
+.workout-complete-card__actions {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 12px;
+	margin-top: 24px;
+}
 .workout-complete-card__button {
 	margin-top: 24px;
 	min-width: 180px;
 	padding: 16px 26px;
 	font-size: 1.15rem;
+}
+.workout-complete-card__actions .workout-complete-card__button {
+	margin-top: 0;
 }
 
 .timebar-shell {
